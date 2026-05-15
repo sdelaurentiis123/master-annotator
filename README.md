@@ -49,26 +49,42 @@ Then open <http://localhost:3000>.
 
 ### Supabase schema
 
-In your Supabase project's SQL editor, run:
+Open your Supabase project's SQL editor and paste the contents of
+[`supabase/schema.sql`](supabase/schema.sql). It creates the `papers` table + the
+Phase-1 RLS policy.
 
-```sql
-create table public.papers (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz default now(),
-  pdf_filename text not null,
-  total_pages int not null,
-  pdf_path text not null,
-  status text not null default 'uploaded',
-  annotations jsonb,
-  plan jsonb,
-  error_message text
-);
+Then in Supabase → Storage, create a bucket named **`papers`** (public). The schema
+file includes a SQL alternative for creating the bucket via the storage table.
 
-alter table public.papers enable row level security;
-create policy "anon all" on public.papers for all using (true) with check (true);
+If you haven't run the SQL yet, the home page will show a clear "Supabase: Could not
+find the table 'public.papers'..." error on the recent-papers list.
+
+## Deploy
+
+### Frontend → Vercel
+
+1. Push to GitHub.
+2. Import the repo into Vercel, set the **Root Directory** to `frontend/`.
+3. Add env vars in the Vercel dashboard:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - `NEXT_PUBLIC_BACKEND_URL` → the Fly.io URL once the backend is deployed
+4. Vercel auto-detects Next.js + pnpm. Default build settings work.
+
+### Backend → Fly.io
+
+```bash
+cd backend
+fly launch --no-deploy --copy-config        # one-time
+fly secrets set \
+  GEMINI_API_KEY=... \
+  ANTHROPIC_API_KEY=... \
+  FRONTEND_ORIGIN=https://<your-vercel-domain>
+fly deploy
 ```
 
-Then create a public-read Storage bucket named `papers`.
+`backend/fly.toml` is preconfigured for shared-CPU, 1 GiB. See
+[DECISIONS.md §D12](DECISIONS.md) for the deploy architecture rationale.
 
 ## Security
 

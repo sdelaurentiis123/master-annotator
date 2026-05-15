@@ -6,6 +6,7 @@ import { CommentSidebar } from "@/components/comment-sidebar";
 import { ExtractButton } from "@/components/extract-button";
 import { PlanButton } from "@/components/plan-button";
 import { PlanReview } from "@/components/plan-review";
+import { AcceptActions } from "@/components/accept-actions";
 import type { DocumentAnnotations, Paper, Plan } from "@/lib/types";
 
 export function PaperWorkspace({
@@ -63,11 +64,22 @@ export function PaperWorkspace({
         )}
 
         {plan && (
-          <PlanReview
-            plan={plan}
-            doc={annotations}
-            onSourceJump={jumpToAnnotation}
-          />
+          <>
+            <PlanReview
+              plan={plan}
+              doc={annotations}
+              onSourceJump={jumpToAnnotation}
+            />
+            {annotations && (
+              <AcceptActions
+                paperId={paper.id}
+                pdfFilename={paper.pdf_filename}
+                doc={annotations}
+                plan={plan}
+                status={paper.status}
+              />
+            )}
+          </>
         )}
 
         {annotations && (

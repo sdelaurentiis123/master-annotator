@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api import extract as extract_api
+from .api import plan as plan_api
 from .config import settings
 
 app = FastAPI(title="annotator backend", version="0.1.0")
@@ -15,6 +16,7 @@ app.add_middleware(
 )
 
 app.include_router(extract_api.router)
+app.include_router(plan_api.router)
 
 
 @app.get("/api/health")

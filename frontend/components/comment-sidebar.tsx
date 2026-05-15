@@ -21,9 +21,11 @@ const INTENT_FILTERS: { value: "all" | ReviewerIntent; label: string }[] = [
 export function CommentSidebar({
   doc,
   onPageJump,
+  highlightId,
 }: {
   doc: DocumentAnnotations;
   onPageJump?: (page: number) => void;
+  highlightId?: string | null;
 }) {
   const [filter, setFilter] = useState<"all" | ReviewerIntent>("all");
 
@@ -95,7 +97,11 @@ export function CommentSidebar({
           <li key={a.id}>
             <button
               onClick={() => onPageJump?.(a.page)}
-              className="group w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted/30"
+              data-aid={a.id}
+              className={cn(
+                "group w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted/30",
+                highlightId === a.id && "ring-2 ring-amber-400 bg-amber-50",
+              )}
             >
               <div className="mb-1.5 flex items-center gap-2">
                 {a.reviewer_intent ? (

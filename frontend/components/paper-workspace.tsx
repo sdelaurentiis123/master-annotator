@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { PdfViewer } from "@/components/pdf-viewer";
 import { CommentSidebar } from "@/components/comment-sidebar";
 import { ExtractButton } from "@/components/extract-button";
-import type { DocumentAnnotations, Paper } from "@/lib/types";
+import { PlanButton } from "@/components/plan-button";
+import { PlanReview } from "@/components/plan-review";
+import type { DocumentAnnotations, Paper, Plan } from "@/lib/types";
 
 export function PaperWorkspace({
   paper,
@@ -14,11 +16,20 @@ export function PaperWorkspace({
   pdfUrl: string | null;
 }) {
   const [page, setPage] = useState(1);
+  const [highlightAid, setHighlightAid] = useState<string | null>(null);
 
   const annotations = (paper.annotations as DocumentAnnotations | null) ?? null;
+  const plan = (paper.plan as Plan | null) ?? null;
+
+  const jumpToAnnotation = useCallback((aid: string, targetPage: number) => {
+    setPage(targetPage);
+    setHighlightAid(aid);
+    // Clear the highlight after the flash
+    setTimeout(() => setHighlightAid(null), 1500);
+  }, []);
 
   return (
-    <div className="grid gap-6 md:grid-cols-[1fr_380px]">
+    <div className="grid gap-6 md:grid-cols-[1fr_400px]">
       <section className="min-w-0">
         {pdfUrl ? (
           <PdfViewer url={pdfUrl} page={page} onPageChange={setPage} />
@@ -29,8 +40,8 @@ export function PaperWorkspace({
         )}
       </section>
 
-      <aside className="space-y-4">
-        <div className="flex items-center gap-2">
+      <aside className="space-y-4 min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
           {pdfUrl && (
             <ExtractButton
               paperId={paper.id}
@@ -39,15 +50,32 @@ export function PaperWorkspace({
               alreadyExtracted={!!annotations}
             />
           )}
+          {annotations && (
+            <PlanButton paperId={paper.id} doc={annotations} alreadyPlanned={!!plan} />
+          )}
         </div>
 
-        {annotations ? (
-          <CommentSidebar doc={annotations} onPageJump={setPage} />
-        ) : (
+        {!annotations && (
           <div className="rounded-lg border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
             Click <strong>Extract annotations</strong> to run Gemini over every page. Takes
             roughly 60–90s for a 12-page paper.
           </div>
+        )}
+
+        {plan && (
+          <PlanReview
+            plan={plan}
+            doc={annotations}
+            onSourceJump={jumpToAnnotation}
+          />
+        )}
+
+        {annotations && (
+          <CommentSidebar
+            doc={annotations}
+            onPageJump={setPage}
+            highlightId={highlightAid}
+          />
         )}
       </aside>
     </div>

@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { IntentBadge } from "@/components/intent-badge";
+import { CommentCard } from "@/components/comment-card";
 import type { DocumentAnnotations, ReviewerIntent } from "@/lib/types";
 
 const INTENT_FILTERS: { value: "all" | ReviewerIntent; label: string }[] = [
@@ -20,10 +19,12 @@ const INTENT_FILTERS: { value: "all" | ReviewerIntent; label: string }[] = [
 
 export function CommentSidebar({
   doc,
+  paperId,
   onPageJump,
   highlightId,
 }: {
   doc: DocumentAnnotations;
+  paperId: string;
   onPageJump?: (page: number) => void;
   highlightId?: string | null;
 }) {
@@ -54,7 +55,7 @@ export function CommentSidebar({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          {flat.length} comments
+          {flat.length} comment{flat.length === 1 ? "" : "s"}
         </h2>
         {lowConfidence > 0 && (
           <Badge variant="outline" className="text-amber-700 border-amber-200 bg-amber-50">
@@ -95,44 +96,13 @@ export function CommentSidebar({
         )}
         {filtered.map((a) => (
           <li key={a.id}>
-            <button
-              onClick={() => onPageJump?.(a.page)}
-              data-aid={a.id}
-              className={cn(
-                "group w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted/30",
-                highlightId === a.id && "ring-2 ring-amber-400 bg-amber-50",
-              )}
-            >
-              <div className="mb-1.5 flex items-center gap-2">
-                {a.reviewer_intent ? (
-                  <IntentBadge intent={a.reviewer_intent} />
-                ) : (
-                  <Badge variant="outline" className="text-muted-foreground">
-                    unclassified
-                  </Badge>
-                )}
-                <span className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  p. {a.page} <ChevronRight className="size-3" />
-                </span>
-              </div>
-              <p className="text-sm">{a.intent}</p>
-              {a.anchor_text && (
-                <p className="mt-1 truncate text-xs italic text-muted-foreground">
-                  &ldquo;{a.anchor_text}&rdquo;
-                </p>
-              )}
-              {a.annotation_content && (
-                <p className="mt-1 font-mono text-xs text-muted-foreground">
-                  {a.annotation_content}
-                </p>
-              )}
-              <div className="mt-2 h-1 w-full overflow-hidden rounded bg-muted">
-                <div
-                  className="h-full bg-foreground/60"
-                  style={{ width: `${Math.round(a.confidence * 100)}%` }}
-                />
-              </div>
-            </button>
+            <CommentCard
+              annotation={a}
+              doc={doc}
+              paperId={paperId}
+              onPageJump={onPageJump}
+              highlighted={highlightId === a.id}
+            />
           </li>
         ))}
       </ul>

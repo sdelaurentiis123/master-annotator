@@ -73,6 +73,7 @@ export function PaperWorkspace({
         {annotations && (
           <CommentSidebar
             doc={annotations}
+            paperId={paper.id}
             onPageJump={setPage}
             highlightId={highlightAid}
           />

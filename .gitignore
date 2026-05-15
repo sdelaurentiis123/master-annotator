@@ -1,0 +1,40 @@
+# Env / secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Node / Next.js
+node_modules/
+.next/
+.turbo/
+.vercel/
+out/
+.pnpm-store/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Claude Code per-project state
+.claude/
+
+# Local outputs from the old MVP extractor (kept just in case)
+out/
+
+# Logs
+*.log

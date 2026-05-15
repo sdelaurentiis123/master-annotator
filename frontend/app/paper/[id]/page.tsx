@@ -5,8 +5,9 @@ import { ArrowLeft } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
-import { PdfViewer } from "@/components/pdf-viewer";
+import { PaperWorkspace } from "@/components/paper-workspace";
 import { createClient } from "@/utils/supabase/server";
+import type { Paper } from "@/lib/types";
 
 export default async function PaperPage({
   params,
@@ -55,33 +56,13 @@ export default async function PaperPage({
         </div>
       </header>
 
-      <div className="grid gap-6 md:grid-cols-[1fr_360px]">
-        <section className="min-w-0">
-          {pdfUrl ? (
-            <PdfViewer url={pdfUrl} />
-          ) : (
-            <p className="text-sm text-destructive">Could not generate signed URL for the PDF.</p>
-          )}
-        </section>
+      {paper.error_message && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <strong>Error:</strong> {paper.error_message}
+        </div>
+      )}
 
-        <aside className="space-y-4">
-          <div className="rounded-lg border bg-card p-4">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground mb-2">
-              Annotations
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Extraction lands in Slice 3. Once the &ldquo;Extract&rdquo; button exists, every mark
-              on the PDF will appear here.
-            </p>
-          </div>
-          <div className="rounded-lg border bg-card p-4">
-            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground mb-2">
-              Plan
-            </h2>
-            <p className="text-sm text-muted-foreground">Slice 4.</p>
-          </div>
-        </aside>
-      </div>
+      <PaperWorkspace paper={paper as Paper} pdfUrl={pdfUrl} />
     </main>
   );
 }

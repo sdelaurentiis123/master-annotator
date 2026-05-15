@@ -11,8 +11,21 @@ import "react-pdf/dist/Page/TextLayer.css";
 // `pdfjs.version` matches whatever react-pdf bundles internally.
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
 
-export function PdfViewer({ url }: { url: string }) {
-  const [pageNum, setPageNum] = useState(1);
+export function PdfViewer({
+  url,
+  page: controlledPage,
+  onPageChange,
+}: {
+  url: string;
+  page?: number;
+  onPageChange?: (page: number) => void;
+}) {
+  const [internalPage, setInternalPage] = useState(1);
+  const pageNum = controlledPage ?? internalPage;
+  const setPageNum = (n: number) => {
+    if (onPageChange) onPageChange(n);
+    else setInternalPage(n);
+  };
   const [numPages, setNumPages] = useState<number | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(800);
 
@@ -43,7 +56,7 @@ export function PdfViewer({ url }: { url: string }) {
             variant="outline"
             size="icon"
             disabled={pageNum <= 1}
-            onClick={() => setPageNum((n) => Math.max(1, n - 1))}
+            onClick={() => setPageNum(Math.max(1, pageNum - 1))}
           >
             <ChevronLeft className="size-4" />
           </Button>
@@ -51,7 +64,7 @@ export function PdfViewer({ url }: { url: string }) {
             variant="outline"
             size="icon"
             disabled={!numPages || pageNum >= numPages}
-            onClick={() => setPageNum((n) => Math.min(numPages ?? n, n + 1))}
+            onClick={() => setPageNum(Math.min(numPages ?? pageNum, pageNum + 1))}
           >
             <ChevronRight className="size-4" />
           </Button>

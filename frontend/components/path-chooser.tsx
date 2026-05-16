@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CopyPromptDialog } from "@/components/copy-prompt-dialog";
 import { RepoSelector } from "@/components/repo-selector";
-import { AgentProgressModal } from "@/components/agent-progress-modal";
+import { AgentRun } from "@/components/agent-run";
 import { createClient } from "@/utils/supabase/client";
 import type { Paper, Plan } from "@/lib/types";
 
@@ -22,15 +22,15 @@ export function PathChooser({
   const [copyOpen, setCopyOpen] = useState(false);
   const [showSelector, setShowSelector] = useState(!paper.connected_repo_full_name);
   const [executing, setExecuting] = useState(false);
-  const [agentOpen, setAgentOpen] = useState(paper.status === "executing");
 
-  const accepted =
+  const isRunning = paper.status === "executing" || paper.status === "complete";
+  const acceptedForCopy =
     paper.status === "accepted" ||
     paper.status === "executing" ||
     paper.status === "complete";
 
   async function acceptAndCopy() {
-    if (!accepted) {
+    if (!acceptedForCopy) {
       const supabase = createClient();
       const { error } = await supabase
         .from("papers")
@@ -76,20 +76,30 @@ export function PathChooser({
         .update({ status: "executing", error_message: null })
         .eq("id", paper.id);
       toast.success("Agent dispatched.");
-      setAgentOpen(true);
       router.refresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       toast.error(`Open PR failed: ${message}`);
-    } finally {
       setExecuting(false);
     }
+  }
+
+  // Once the agent is running (or complete), the path-chooser becomes the
+  // trace log itself. No dialog -- progress is the page.
+  if (isRunning) {
+    return (
+      <AgentRun
+        paperId={paper.id}
+        prUrl={paper.pr_url ?? null}
+        prNumber={paper.pr_number ?? null}
+      />
+    );
   }
 
   return (
     <>
       <div className="space-y-3">
-        {/* Path A — copy the prompt */}
+        {/* Path A -- copy the prompt */}
         <div className="rounded-md border border-[var(--rule)] bg-[var(--paper-2)] p-4 space-y-3">
           <div className="space-y-1">
             <p className="kicker">option a</p>
@@ -101,11 +111,11 @@ export function PathChooser({
           </div>
           <Button onClick={acceptAndCopy} className="w-full">
             <Copy className="size-4" />
-            {accepted ? "Show prompt" : "Accept plan and copy prompt"}
+            {acceptedForCopy ? "Show prompt" : "Accept plan and copy prompt"}
           </Button>
         </div>
 
-        {/* Path B — agent + PR */}
+        {/* Path B -- agent + PR */}
         <div className="rounded-md border border-[var(--rule)] bg-[var(--paper-2)] p-4 space-y-3">
           <div className="space-y-1">
             <p className="kicker">option b</p>
@@ -156,11 +166,6 @@ export function PathChooser({
         onOpenChange={setCopyOpen}
         plan={plan}
         filename={paper.pdf_filename}
-      />
-      <AgentProgressModal
-        open={agentOpen}
-        onOpenChange={setAgentOpen}
-        paperId={paper.id}
       />
     </>
   );

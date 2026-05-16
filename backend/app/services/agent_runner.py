@@ -179,6 +179,13 @@ async def _agent_loop(
                 terminated = d
                 break
             bus_.publish({"type": "tool", "name": trace.name, "text": trace.text})
+            # Also publish the (truncated) tool result so the frontend can show
+            # actual command output instead of just the "$ cmd" header.
+            bus_.publish({
+                "type": "tool_result",
+                "name": trace.name,
+                "text": result_text[:1500],
+            })
             tool_results.append({
                 "type": "tool_result",
                 "tool_use_id": block.id,

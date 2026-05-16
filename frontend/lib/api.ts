@@ -4,7 +4,7 @@
  * Frontend talks to the backend ONLY for processing (extract / plan / prompt).
  * All persistence goes through Supabase.
  */
-import type { DocumentAnnotations, Plan, PlanResponse } from "./types";
+import type { DocumentAnnotations, PlanResponse } from "./types";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
@@ -54,16 +54,5 @@ export async function generatePlan(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ document: doc }),
-  });
-}
-
-export async function generatePrompt(
-  doc: DocumentAnnotations,
-  plan: Plan,
-): Promise<{ prompt: string }> {
-  return fetchJson("/api/prompt", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ document: doc, plan }),
   });
 }

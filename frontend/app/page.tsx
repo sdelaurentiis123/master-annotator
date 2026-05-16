@@ -1,55 +1,51 @@
 import { Suspense } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { PapersList } from "@/components/papers-list";
-import { HealthCheck } from "@/components/health-check";
+import { SiteHeader } from "@/components/site-header";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto w-full max-w-4xl px-6 py-12 space-y-10">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">master-annotator</h1>
-        <p className="text-muted-foreground">
-          Upload a marked-up PDF → get an ordered, classified plan of edits → ship a Claude
-          Code prompt or a GitHub PR.
+    <>
+      <SiteHeader subtitle="reviewer marginalia → LaTeX PR" />
+
+      <main className="mx-auto w-full max-w-3xl px-6 py-16 space-y-14">
+        <section className="space-y-3 text-center">
+          <p className="kicker">phase 1 · upload + plan + copy prompt</p>
+          <h1 className="font-serif text-4xl font-medium tracking-tight">
+            Drop a marked-up PDF.
+          </h1>
+          <p className="text-[var(--ink-2)] max-w-prose mx-auto leading-relaxed">
+            Gemini reads every mark on every page. Claude organizes them into an ordered
+            plan, classifies each by reviewer intent, and renders a Claude Code prompt you
+            can paste into your paper&rsquo;s repo. PR opening lands in Phase&nbsp;2.
+          </p>
+        </section>
+
+        <section>
+          <UploadDropzone />
+        </section>
+
+        <section className="space-y-3">
+          <p className="kicker">recent</p>
+          <Suspense
+            fallback={
+              <div className="space-y-2">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            }
+          >
+            <PapersList />
+          </Suspense>
+        </section>
+      </main>
+
+      <footer className="mt-auto border-t border-[var(--rule)] py-4">
+        <p className="mx-auto max-w-6xl px-6 kicker">
+          gemini 3.1 pro preview · claude opus 4.7 · supabase
         </p>
-      </header>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Upload
-        </h2>
-        <UploadDropzone />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Recent papers
-        </h2>
-        <Suspense
-          fallback={
-            <div className="space-y-2">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          }
-        >
-          <PapersList />
-        </Suspense>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          System
-        </h2>
-        <HealthCheck />
-      </section>
-
-      <footer className="text-xs text-muted-foreground space-x-2">
-        <Badge variant="outline">phase 1</Badge>
-        <span>slice 2 — upload + view</span>
       </footer>
-    </main>
+    </>
   );
 }

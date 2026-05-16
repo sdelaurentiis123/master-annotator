@@ -64,34 +64,16 @@ export interface DocumentAnnotations {
   pages: PageAnnotations[];
 }
 
-export type PlanStepKind = "commit" | "pr_comment" | "manual";
-
-export interface PlanStep {
-  id: string;
-  order: number;
-  kind: PlanStepKind;
-  title: string;
-  description: string;
-  source_annotation_ids: string[];
-  target_files_hint: string[] | null;
-  requires_human_confirmation: boolean;
-  rationale: string;
-}
-
 export interface Plan {
+  /** Markdown Claude Code prompt — the deliverable. */
+  prompt: string;
+  /** One-line summary derived from the prompt's H1 line, for UI headers. */
   summary: string;
-  steps: PlanStep[];
-  unactionable_count: number;
-}
-
-export interface Classification {
-  annotation_id: string;
-  reviewer_intent: ReviewerIntent;
-  reasoning: string;
+  /** Annotations covered by the plan. */
+  annotation_count: number;
 }
 
 export interface PlanResponse {
-  classifications: Classification[];
   plan: Plan;
 }
 

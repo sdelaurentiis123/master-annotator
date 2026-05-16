@@ -8,7 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { cn } from "@/lib/utils";
 
 const ACCEPT = "application/pdf";
-const MAX_BYTES = 50 * 1024 * 1024; // 50 MB
+const MAX_BYTES = 50 * 1024 * 1024;
 
 export function UploadDropzone() {
   const router = useRouter();
@@ -33,22 +33,19 @@ export function UploadDropzone() {
         const paperId = crypto.randomUUID();
         const pdfPath = `${paperId}.pdf`;
 
-        // 1. Upload bytes to Storage
         const { error: upErr } = await supabase.storage
           .from("papers")
           .upload(pdfPath, file, { contentType: "application/pdf", upsert: false });
         if (upErr) throw new Error(`storage upload: ${upErr.message}`);
 
-        // 2. Insert metadata row
         const { error: insErr } = await supabase.from("papers").insert({
           id: paperId,
           pdf_filename: file.name,
-          total_pages: 0, // updated after extraction
+          total_pages: 0,
           pdf_path: pdfPath,
           status: "uploaded",
         });
         if (insErr) {
-          // Clean up the orphaned blob to keep storage tidy
           await supabase.storage.from("papers").remove([pdfPath]).catch(() => {});
           throw new Error(`db insert: ${insErr.message}`);
         }
@@ -78,21 +75,21 @@ export function UploadDropzone() {
         if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files);
       }}
       className={cn(
-        "relative flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border bg-card px-6 py-14 text-center transition-colors",
-        dragging && "border-primary bg-primary/5",
+        "relative flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-[var(--rule)] bg-[var(--paper-2)] px-6 py-16 text-center transition-colors",
+        dragging && "border-[var(--clay)] bg-[var(--clay)]/5",
         busy && "pointer-events-none opacity-70",
       )}
     >
       {busy ? (
-        <Loader2 className="size-8 animate-spin text-muted-foreground" />
+        <Loader2 className="size-7 animate-spin text-[var(--ink-3)]" />
       ) : (
-        <Upload className="size-8 text-muted-foreground" />
+        <Upload className="size-7 text-[var(--ink-3)]" />
       )}
       <div className="space-y-1">
-        <p className="text-sm font-medium">
+        <p className="font-serif text-base">
           {busy ? "Uploading…" : "Drop a marked-up PDF here"}
         </p>
-        <p className="text-xs text-muted-foreground">or click to choose a file · PDF up to 50 MB</p>
+        <p className="kicker">or click to choose · PDF up to 50 MB</p>
       </div>
       <input
         type="file"

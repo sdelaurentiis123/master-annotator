@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { PdfViewer } from "@/components/pdf-viewer";
 import { CommentSidebar } from "@/components/comment-sidebar";
 import { ExtractButton } from "@/components/extract-button";
@@ -22,18 +22,42 @@ export function PaperWorkspace({
   const annotations = (paper.annotations as DocumentAnnotations | null) ?? null;
   const plan = (paper.plan as Plan | null) ?? null;
 
+  const flatAnnotations = useMemo(
+    () => annotations?.pages.flatMap((p) => p.annotations) ?? [],
+    [annotations],
+  );
+
   const jumpToAnnotation = useCallback((aid: string, targetPage: number) => {
     setPage(targetPage);
     setHighlightAid(aid);
-    // Clear the highlight after the flash
-    setTimeout(() => setHighlightAid(null), 1500);
+    setTimeout(() => setHighlightAid(null), 1800);
+  }, []);
+
+  const handleSidebarPageJump = useCallback((targetPage: number, aid?: string) => {
+    setPage(targetPage);
+    if (aid) {
+      setHighlightAid(aid);
+      setTimeout(() => setHighlightAid(null), 1800);
+    }
+  }, []);
+
+  const handleOverlayClick = useCallback((aid: string) => {
+    setHighlightAid(aid);
+    setTimeout(() => setHighlightAid(null), 1800);
   }, []);
 
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_400px]">
       <section className="min-w-0">
         {pdfUrl ? (
-          <PdfViewer url={pdfUrl} page={page} onPageChange={setPage} />
+          <PdfViewer
+            url={pdfUrl}
+            page={page}
+            onPageChange={setPage}
+            annotations={flatAnnotations}
+            highlightId={highlightAid}
+            onAnnotationClick={handleOverlayClick}
+          />
         ) : (
           <p className="text-sm text-destructive">
             Could not generate signed URL for the PDF.
@@ -59,26 +83,19 @@ export function PaperWorkspace({
         {!annotations && (
           <div className="rounded-lg border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
             Click <strong>Extract annotations</strong> to run Gemini over every page. Takes
-            roughly 60–90s for a 12-page paper.
+            roughly 60–180s for a 12-page paper.
           </div>
         )}
 
         {plan && (
           <>
-            <PlanReview
+            <PlanReview plan={plan} />
+            <AcceptActions
+              paperId={paper.id}
+              pdfFilename={paper.pdf_filename}
               plan={plan}
-              doc={annotations}
-              onSourceJump={jumpToAnnotation}
+              status={paper.status}
             />
-            {annotations && (
-              <AcceptActions
-                paperId={paper.id}
-                pdfFilename={paper.pdf_filename}
-                doc={annotations}
-                plan={plan}
-                status={paper.status}
-              />
-            )}
           </>
         )}
 
@@ -86,7 +103,8 @@ export function PaperWorkspace({
           <CommentSidebar
             doc={annotations}
             paperId={paper.id}
-            onPageJump={setPage}
+            currentPage={page}
+            onPageJump={handleSidebarPageJump}
             highlightId={highlightAid}
           />
         )}

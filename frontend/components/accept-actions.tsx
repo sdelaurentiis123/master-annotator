@@ -7,18 +7,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CopyPromptDialog } from "@/components/copy-prompt-dialog";
 import { createClient } from "@/utils/supabase/client";
-import type { DocumentAnnotations, Plan, PaperStatus } from "@/lib/types";
+import type { Plan, PaperStatus } from "@/lib/types";
 
 export function AcceptActions({
   paperId,
   pdfFilename,
-  doc,
   plan,
   status,
 }: {
   paperId: string;
   pdfFilename: string;
-  doc: DocumentAnnotations;
   plan: Plan;
   status: PaperStatus;
 }) {
@@ -59,7 +57,6 @@ export function AcceptActions({
       <CopyPromptDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        doc={doc}
         plan={plan}
         filename={pdfFilename}
       />

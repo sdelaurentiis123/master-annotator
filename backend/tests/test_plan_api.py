@@ -1,7 +1,11 @@
-"""Smoke tests for POST /api/plan with the Anthropic call mocked."""
+"""Smoke tests for POST /api/plan (Anthropic streaming call mocked).
+
+After the refactor: the planner returns a markdown Claude Code prompt as plain text,
+not a structured PlanResponse{classifications, plan_steps}. We mock the Anthropic
+streaming API to return a synthetic markdown string.
+"""
 from __future__ import annotations
 
-import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -9,48 +13,63 @@ from fastapi.testclient import TestClient
 
 
 def _fake_doc():
-    from app.extractor.schema import (
-        Annotation,
-        DocumentAnnotations,
-        PageAnnotations,
-    )
+    from app.extractor.schema import Annotation, DocumentAnnotations, PageAnnotations
 
-    def _ann(idx: int, page: int, intent: str, conf: float = 0.9) -> Annotation:
+    def _ann(idx, page, intent):
         return Annotation(
             id=f"a{idx}",
             page=page,
             shape="handwriting",
             type="replace",
-            bbox=[10, 10, 100, 30],
-            anchor_bbox=[10, 10, 100, 30],
+            bbox=[0, 0, 100, 30],
+            anchor_bbox=[0, 0, 100, 30],
             anchor_text="foo",
-            context_text=f"surrounding text for a{idx}",
+            context_text=f"surrounding for a{idx}",
             annotation_content="bar",
             intent=intent,
             has_arrow=False,
-            confidence=conf,
+            confidence=0.9,
         )
 
     return DocumentAnnotations(
-        source_filename="zoltan.pdf",
+        source_filename="paper.pdf",
         total_pages=2,
         pages=[
             PageAnnotations(
                 page_number=1,
                 width_px=1000,
                 height_px=1000,
-                annotations=[
-                    _ann(1, 1, "replace 'foo' with 'bar'"),
-                    _ann(2, 1, "delete the phrase 'foo'", conf=0.5),
-                ],
+                annotations=[_ann(1, 1, "replace foo with bar"), _ann(2, 1, "delete foo")],
             ),
             PageAnnotations(
                 page_number=2,
                 width_px=1000,
                 height_px=1000,
-                annotations=[_ann(3, 2, "replace 'foo' with 'bar'")],
+                annotations=[_ann(3, 2, "replace foo with bar")],
             ),
         ],
+    )
+
+
+_FAKE_PROMPT = """# Address reviewer annotations on paper.pdf
+
+You are addressing reviewer feedback on a paper in this repo.
+
+## Edits
+
+### 1. Replace 'foo' with 'bar' throughout
+- Source pages: p.1, p.2
+- Refers to: `foo` → `bar`
+"""
+
+
+def _mock_anthropic_message():
+    """Stand-in for the final message returned by stream.get_final_message()."""
+    block = SimpleNamespace(type="text", text=_FAKE_PROMPT)
+    return SimpleNamespace(
+        content=[block],
+        stop_reason="end_turn",
+        usage=SimpleNamespace(input_tokens=1234, output_tokens=567),
     )
 
 
@@ -62,55 +81,29 @@ def client(monkeypatch):
     return TestClient(app)
 
 
-def _mock_anthropic_response():
-    """Hand-rolled stand-in for an Anthropic Messages response with a tool_use block."""
-    plan_input = {
-        "classifications": [
-            {"annotation_id": "a1", "reviewer_intent": "update", "reasoning": "strike+replacement"},
-            {"annotation_id": "a2", "reviewer_intent": "delete", "reasoning": "strike no replacement, low confidence"},
-            {"annotation_id": "a3", "reviewer_intent": "update", "reasoning": "same edit as a1, page 2"},
-        ],
-        "plan": {
-            "summary": "1 commit, 1 pr_comment.",
-            "steps": [
-                {
-                    "id": "step-1",
-                    "order": 1,
-                    "kind": "commit",
-                    "title": "Replace 'foo' with 'bar' throughout",
-                    "description": "Apply foo→bar globally to text content.",
-                    "source_annotation_ids": ["a1", "a3"],
-                    "target_files_hint": ["sections/intro.tex"],
-                    "requires_human_confirmation": False,
-                    "rationale": "Reviewer marked the same edit on both pages.",
-                },
-                {
-                    "id": "step-2",
-                    "order": 2,
-                    "kind": "pr_comment",
-                    "title": "Reviewer suggested deleting 'foo' on p.1 (low confidence)",
-                    "description": "Low-confidence strike; surface for human review.",
-                    "source_annotation_ids": ["a2"],
-                    "target_files_hint": [],
-                    "requires_human_confirmation": True,
-                    "rationale": "Confidence below the auto-apply threshold.",
-                },
-            ],
-            "unactionable_count": 1,
-        },
-    }
-    block = SimpleNamespace(type="tool_use", name="propose_plan", input=plan_input)
-    return SimpleNamespace(content=[block], stop_reason="tool_use")
+def test_plan_route_returns_markdown(client, monkeypatch):
+    class StubStream:
+        def __init__(self, response):
+            self._response = response
 
+        async def __aenter__(self):
+            return self
 
-def test_plan_route_runs(client, monkeypatch):
-    async def fake_create(**kwargs):
-        return _mock_anthropic_response()
+        async def __aexit__(self, *a):
+            return False
 
-    # Patch the async client constructor to return a stub with a `messages.create`.
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            raise StopAsyncIteration
+
+        async def get_final_message(self):
+            return self._response
+
     class StubMessages:
-        async def create(self, **kwargs):
-            return _mock_anthropic_response()
+        def stream(self, **kwargs):
+            return StubStream(_mock_anthropic_message())
 
     class StubAsyncAnthropic:
         def __init__(self, *a, **kw):
@@ -123,15 +116,10 @@ def test_plan_route_runs(client, monkeypatch):
     assert resp.status_code == 200, resp.text
     body = resp.json()
 
-    # classifications: every annotation labelled
-    assert len(body["classifications"]) == 3
-    ids = sorted(c["annotation_id"] for c in body["classifications"])
-    assert ids == ["a1", "a2", "a3"]
-
-    # plan: grouped same-edit annotations, one pr_comment
-    assert body["plan"]["unactionable_count"] == 1
-    kinds = [s["kind"] for s in body["plan"]["steps"]]
-    assert "commit" in kinds and "pr_comment" in kinds
+    plan = body["plan"]
+    assert "Address reviewer annotations" in plan["prompt"]
+    assert plan["summary"].startswith("Address reviewer annotations")
+    assert plan["annotation_count"] == 3
 
 
 def test_plan_route_rejects_empty_doc(client):
@@ -144,14 +132,3 @@ def test_plan_route_rejects_empty_doc(client):
     }
     resp = client.post("/api/plan", json=empty)
     assert resp.status_code == 400
-
-
-def test_planner_schema_generation():
-    """The Pydantic-derived input schema must be JSON-serializable and well-formed."""
-    import json
-    from app.services.planner import _tool_input_schema
-    schema = _tool_input_schema()
-    json.dumps(schema)  # not raising = ok
-    assert schema["type"] == "object"
-    assert "classifications" in schema["properties"]
-    assert "plan" in schema["properties"]

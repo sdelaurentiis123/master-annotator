@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Pencil, X, Save, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { IntentBadge } from "@/components/intent-badge";
+import { TypeBadge } from "@/components/type-badge";
+import { colorFor } from "@/components/annotation-overlay";
 import { createClient } from "@/utils/supabase/client";
 import type {
   Annotation,
@@ -47,6 +49,27 @@ export function CommentCard({
     annotation.reviewer_intent,
   );
   const [draftAnchor, setDraftAnchor] = useState(annotation.anchor_text);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const typeColor = colorFor(annotation);
+
+  // When the matching PDF overlay is clicked, scroll this card into view
+  // inside the sidebar's bounded-scroll container.
+  useEffect(() => {
+    if (highlighted && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [highlighted]);
+
+  // Re-seed draft state from the live annotation each time edit mode opens.
+  // Without this, useState's initial value freezes on first mount and gets
+  // stale when the annotation updates (e.g. after the planner classifies it).
+  function openEdit() {
+    setDraftIntent(annotation.intent);
+    setDraftReviewerIntent(annotation.reviewer_intent);
+    setDraftAnchor(annotation.anchor_text);
+    setEditing(true);
+  }
 
   async function save() {
     setBusy(true);
@@ -126,9 +149,8 @@ export function CommentCard({
   if (editing) {
     return (
       <div
-        className={cn(
-          "rounded-lg border bg-card p-3 space-y-2 ring-1 ring-foreground/20",
-        )}
+        className="rounded-lg border bg-card p-3 space-y-2 ring-1 ring-foreground/20 border-l-[3px]"
+        style={{ borderLeftColor: typeColor }}
       >
         <div className="flex items-center gap-2 text-xs">
           <span className="font-medium uppercase tracking-wide text-muted-foreground">
@@ -143,7 +165,7 @@ export function CommentCard({
             }
             className="rounded border bg-background px-2 py-1 text-xs"
           >
-            <option value="">unclassified</option>
+            <option value="">— not set —</option>
             {INTENT_OPTIONS.map((i) => (
               <option key={i} value={i}>
                 {i}
@@ -207,18 +229,20 @@ export function CommentCard({
 
   return (
     <div
+      ref={cardRef}
       className={cn(
-        "group rounded-lg border bg-card p-3 transition-colors",
-        highlighted && "ring-2 ring-amber-400 bg-amber-50",
+        "group rounded-lg border bg-card p-3 transition-colors border-l-[3px] scroll-mt-2",
+        highlighted && "ring-2 ring-offset-1 bg-amber-50",
       )}
+      style={{
+        borderLeftColor: typeColor,
+        ...(highlighted ? { boxShadow: `0 0 0 2px ${typeColor}` } : {}),
+      }}
     >
-      <div className="mb-1.5 flex items-center gap-2">
-        {annotation.reviewer_intent ? (
+      <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+        <TypeBadge type={annotation.type} />
+        {annotation.reviewer_intent && (
           <IntentBadge intent={annotation.reviewer_intent} />
-        ) : (
-          <Badge variant="outline" className="text-muted-foreground">
-            unclassified
-          </Badge>
         )}
         {annotation.user_edited && (
           <Badge variant="outline" className="text-[10px] text-muted-foreground">
@@ -227,7 +251,7 @@ export function CommentCard({
         )}
         <span className="ml-auto flex items-center gap-1">
           <button
-            onClick={() => setEditing(true)}
+            onClick={openEdit}
             className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-1 hover:bg-muted text-muted-foreground"
             title="Edit annotation"
           >
@@ -246,7 +270,7 @@ export function CommentCard({
         onClick={() => onPageJump?.(annotation.page)}
         className="block w-full text-left"
       >
-        <p className="text-sm">{annotation.intent}</p>
+        <p className="text-sm leading-snug">{annotation.intent}</p>
         {annotation.anchor_text && (
           <p className="mt-1 truncate text-xs italic text-muted-foreground">
             &ldquo;{annotation.anchor_text}&rdquo;
@@ -259,8 +283,11 @@ export function CommentCard({
         )}
         <div className="mt-2 h-1 w-full overflow-hidden rounded bg-muted">
           <div
-            className="h-full bg-foreground/60"
-            style={{ width: `${Math.round(annotation.confidence * 100)}%` }}
+            className="h-full"
+            style={{
+              width: `${Math.round(annotation.confidence * 100)}%`,
+              background: typeColor,
+            }}
           />
         </div>
       </button>

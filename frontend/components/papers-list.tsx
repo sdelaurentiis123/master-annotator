@@ -17,31 +17,36 @@ export async function PapersList() {
 
   if (error) {
     return (
-      <p className="text-sm text-destructive">
-        Supabase: <code>{error.message}</code>. Did you run the SQL in the README?
-      </p>
+      <div className="rounded-md border border-[var(--rule)] bg-[var(--paper-2)] px-4 py-3 text-sm">
+        <p className="text-[var(--danger)]">
+          Couldn&rsquo;t reach Supabase: <code className="mono">{error.message}</code>
+        </p>
+        <p className="kicker mt-1">
+          Did you run <code className="mono normal-case">supabase/schema.sql</code>?
+        </p>
+      </div>
     );
   }
 
   if (!data?.length) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No papers yet. Drop a PDF above to get started.
+      <p className="text-sm text-[var(--ink-3)] italic">
+        No papers yet — drop a PDF above.
       </p>
     );
   }
 
   return (
-    <ul className="divide-y rounded-lg border bg-card">
+    <ul className="divide-y divide-[var(--rule)] rounded-md border border-[var(--rule)] bg-[var(--paper-2)]">
       {data.map((p: Pick<Paper, "id" | "pdf_filename" | "status" | "created_at" | "total_pages">) => (
         <li key={p.id}>
           <Link
             href={`/paper/${p.id}`}
-            className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-muted/40"
+            className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-[var(--paper-3)]"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{p.pdf_filename}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="truncate font-serif text-base">{p.pdf_filename}</p>
+              <p className="kicker mt-0.5">
                 {formatDistanceToNowStrict(p.created_at)} ago
                 {p.total_pages > 0 ? ` · ${p.total_pages} pages` : ""}
               </p>

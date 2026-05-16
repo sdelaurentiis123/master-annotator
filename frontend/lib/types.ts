@@ -91,6 +91,7 @@ export type PaperStatus =
 export interface Paper {
   id: string;
   created_at: string;
+  user_id: string | null;
   pdf_filename: string;
   total_pages: number;
   pdf_path: string;
@@ -98,4 +99,8 @@ export interface Paper {
   annotations: DocumentAnnotations | null;
   plan: Plan | null;
   error_message: string | null;
+  // Phase 2
+  connected_repo_full_name: string | null;
+  pr_url: string | null;
+  pr_number: number | null;
 }

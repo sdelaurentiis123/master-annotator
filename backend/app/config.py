@@ -19,5 +19,12 @@ class Settings(BaseSettings):
     extract_concurrency: int = 6
     extract_dpi: int = 300
 
+    # Phase 2
+    e2b_api_key: str = ""
+    # Toggle: "local" runs the agent against /tmp filesystem (fast dev,
+    # default), "sandbox" spawns an E2B sandbox (prod, requires E2B_API_KEY).
+    # Override via the AGENT_WORKSPACE env var.
+    agent_workspace: str = "local"
+
 
 settings = Settings()

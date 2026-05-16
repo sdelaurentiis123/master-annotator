@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .api import execute as execute_api
 from .api import extract as extract_api
 from .api import plan as plan_api
 from .config import settings
@@ -17,6 +18,7 @@ app.add_middleware(
 
 app.include_router(extract_api.router)
 app.include_router(plan_api.router)
+app.include_router(execute_api.router)
 
 
 @app.get("/api/health")

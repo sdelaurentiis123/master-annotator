@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.1-pro-preview"
     claude_model: str = "claude-opus-4-7"
 
-    extract_concurrency: int = 6
+    # Concurrency = 12 means every page in a typical 12-page paper starts at
+    # the same time. Gemini paid tier handles this fine. For larger papers
+    # rate-limit retries kick in.
+    extract_concurrency: int = 12
     extract_dpi: int = 300
 
     # Phase 2

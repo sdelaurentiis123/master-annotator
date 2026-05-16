@@ -5,6 +5,7 @@ On boot: install tectonic + git, then clone the repo and add a worktree.
 """
 from __future__ import annotations
 
+import asyncio
 import shlex
 import sys
 from dataclasses import dataclass

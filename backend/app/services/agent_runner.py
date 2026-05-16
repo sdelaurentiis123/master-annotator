@@ -50,7 +50,7 @@ async def run(
     anthropic_api_key: str | None = None,
     model: str | None = None,
     workspace_factory=None,
-    max_turns: int = 40,
+    max_turns: int = 100,
 ) -> dict:
     """Drive one paper through the agent loop. Returns the PR dict or raises."""
     b = bus.get_or_create(paper_id)

@@ -35,3 +35,9 @@ the paper's LaTeX source. Apply them using the tools provided.
 - If you cannot find the .tex root in 3 attempts, surface the failure in
   `done_editing` and stop.
 - Keep total bash invocations under ~50. If you need more, you're not making progress.
+- The HARD CAP is 100 tool turns. Around turn 60, start wrapping up: commit
+  anything ready, then call `done_editing` with a summary of what landed and
+  what you skipped. Do NOT keep exploring at that point.
+- When in doubt: COMMIT WHAT YOU HAVE, then call `done_editing`. The orchestrator
+  pushes whatever commits you made and opens the PR. Half-applied is better
+  than crashing with no PR.

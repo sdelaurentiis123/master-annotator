@@ -27,9 +27,11 @@ class SandboxWorkspace:
 
     def __init__(self, paper_id: str):
         self.paper_id = paper_id
-        self.root = "/workspace"
-        self.source = "/workspace/source"
-        self._edit_dir = "/workspace/edit"
+        # E2B's stock python template runs as a non-root user; `/workspace`
+        # isn't writable. Use the user's home, which always is.
+        self.root = "/home/user/workspace"
+        self.source = "/home/user/workspace/source"
+        self._edit_dir = "/home/user/workspace/edit"
         self._sb: AsyncSandbox | None = None
 
     @property
@@ -63,10 +65,15 @@ class SandboxWorkspace:
             bus_.publish({"type": "think", "text": "installing tectonic (LaTeX compiler)…"})
         tec_hb = asyncio.create_task(_heartbeat(bus_, "still installing tectonic"))
         try:
+            # Install into ~/.local/bin (writable as the sandbox's non-root user)
+            # and add it to PATH for subsequent commands.
             await self._run(
+                "mkdir -p ~/.local/bin && "
                 "curl --proto '=https' --tlsv1.2 -fsSL "
                 "https://drop-sh.fullyjustified.net | sh -s -- -y "
-                "&& mv tectonic /usr/local/bin/tectonic && tectonic --version",
+                "&& mv tectonic ~/.local/bin/tectonic "
+                "&& echo 'export PATH=$HOME/.local/bin:$PATH' >> ~/.bashrc "
+                "&& ~/.local/bin/tectonic --version",
                 cwd="/tmp",
                 timeout_s=180,
                 check=True,
@@ -158,8 +165,10 @@ class SandboxWorkspace:
         check: bool = False,
     ) -> BashResult:
         # E2B's commands.run runs the cmd via bash -lc inside the sandbox.
-        # Compose `cd <cwd> && <cmd>` so we don't depend on a working-directory API.
-        full = f"cd {shlex.quote(cwd)} && {cmd}"
+        # Compose `cd <cwd> && <cmd>` so we don't depend on a working-directory
+        # API, and prepend ~/.local/bin to PATH so the agent's `tectonic` and
+        # anything else we installed there is reachable from inside bash too.
+        full = f"export PATH=$HOME/.local/bin:$PATH && cd {shlex.quote(cwd)} && {cmd}"
         exec_ = await self.sb.commands.run(full, timeout=timeout_s)
         result = BashResult(
             stdout=getattr(exec_, "stdout", "") or "",

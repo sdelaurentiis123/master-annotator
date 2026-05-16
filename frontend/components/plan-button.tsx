@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wand2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { generatePlan } from "@/lib/api";
@@ -61,10 +61,7 @@ export function PlanButton({
           Planning…
         </>
       ) : (
-        <>
-          <Wand2 className="size-4" />
-          {alreadyPlanned ? "Regenerate plan" : "Generate plan"}
-        </>
+        <>{alreadyPlanned ? "Regenerate plan" : "Generate plan"}</>
       )}
     </Button>
   );

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { extractAnnotations } from "@/lib/api";
@@ -76,10 +76,7 @@ export function ExtractButton({ paperId, pdfUrl, pdfFilename, alreadyExtracted }
           Extracting…
         </>
       ) : (
-        <>
-          <Sparkles className="size-4" />
-          {alreadyExtracted ? "Re-extract annotations" : "Extract annotations"}
-        </>
+        <>{alreadyExtracted ? "Re-extract annotations" : "Extract annotations"}</>
       )}
     </Button>
   );

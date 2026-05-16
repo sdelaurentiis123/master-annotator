@@ -104,17 +104,23 @@ class SessionBus:
                 pass
 
 
-# Process-local registry keyed by paper_id. Buses are weakly retained: when
-# an agent finishes, the runner calls bus.close() which yields _end to
-# subscribers; the bus itself stays in the registry until evicted below.
+# Process-local registry keyed by paper_id. A bus lives for the lifetime of
+# the process; producers and subscribers reuse the same instance no matter
+# how many times the user retries. Frontend uses "<feature>_start" events
+# (extract_start, agent_start) to reset its local state when a new run kicks
+# off; old backlog entries can be filtered out by tracking the seq of the
+# most recent start event.
 _BUSES: dict[str, SessionBus] = {}
 
 
 def get_or_create(paper_id: str) -> SessionBus:
     bus = _BUSES.get(paper_id)
-    if bus is None or bus.is_closed:
+    if bus is None:
         bus = SessionBus(session_id=paper_id)
         _BUSES[paper_id] = bus
+    # The bus may never close in this model; if it somehow did (e.g. an
+    # explicit close() somewhere we cleaned up), re-open for new events.
+    bus._closed = False  # noqa: SLF001 — intentional flag flip
     return bus
 
 

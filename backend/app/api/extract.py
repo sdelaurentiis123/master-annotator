@@ -45,9 +45,5 @@ async def extract_route(
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"extraction failed: {e}")
-    finally:
-        # Close the bus so any subscribers cleanly drain. Idempotent.
-        if b is not None:
-            b.close()
 
     return doc.model_dump()

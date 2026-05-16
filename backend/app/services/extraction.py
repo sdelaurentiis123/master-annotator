@@ -69,6 +69,12 @@ async def extract_with_batching(
     raster_elapsed = time.monotonic() - t0
     _log(f"rasterized {len(rasterized)} pages in {raster_elapsed:.1f}s "
          f"(concurrency={concurrency}, model={model})")
+    _publish(bus_, {
+        "type": "extract_start",
+        "total_pages": len(rasterized),
+        "concurrency": concurrency,
+        "rasterize_elapsed": raster_elapsed,
+    })
 
     sem = asyncio.Semaphore(concurrency)
     started_at: dict[int, float] = {}
@@ -80,6 +86,7 @@ async def extract_with_batching(
             started_at[page_num] = time.monotonic()
             in_flight = len(started_at) - len(done)
             _log(f"p{page_num:>2} START ({w}x{h}, {in_flight} in flight)")
+            _publish(bus_, {"type": "extract_page_start", "page": page_num})
 
             anns = []
             error: str | None = None

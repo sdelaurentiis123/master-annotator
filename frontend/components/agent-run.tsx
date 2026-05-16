@@ -63,6 +63,14 @@ export function AgentRun({
             return;
           }
           if (ev.type === "_end") return;
+          // agent_start = the producer just kicked off a fresh run; wipe
+          // any stale traces from a prior run in the same bus.
+          if (ev.type === "agent_start") {
+            setTraces([ev]);
+            setFinalPr(null);
+            setStreamError(null);
+            return;
+          }
           setTraces((t) => [...t, ev]);
 
           if (ev.type === "done" && ev.pr_url) {

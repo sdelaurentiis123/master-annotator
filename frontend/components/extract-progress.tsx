@@ -69,6 +69,8 @@ export function ExtractProgress({
           if (ev.type === "_end") return;
 
           if (ev.type === "extract_start" && typeof ev.total_pages === "number") {
+            // Reset: a fresh extraction is starting. Wipe any stale page state
+            // from a previous run that may still be in the bus backlog.
             setTotal(ev.total_pages);
             const init = new Map<number, { state: PageState }>();
             for (let i = 1; i <= ev.total_pages; i++) init.set(i, { state: "pending" });

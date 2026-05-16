@@ -59,6 +59,9 @@ async def run(
 
     try:
         ws: Workspace = factory()
+        # agent_start is the signal the frontend uses to clear its local
+        # trace state. Always publish it as the FIRST event of a run.
+        b.publish({"type": "agent_start", "branch": branch, "repo": repo_full_name})
         b.publish({"type": "think", "text": f"preparing workspace…"})
         base_branch = await github_client.detect_default_branch(github_token, repo_full_name)
         b.publish({"type": "think", "text": f"base branch: {base_branch}"})
@@ -101,13 +104,13 @@ async def run(
         b.publish({"type": "error", "text": f"{type(e).__name__}: {e}"})
         raise
     finally:
-        # Best-effort cleanup
+        # Best-effort cleanup of the workspace. Don't close the bus -- it stays
+        # alive in the registry so a late-connecting subscriber can replay
+        # the backlog up to the latest 'done' / 'error' event.
         try:
             await ws.teardown()  # type: ignore[attr-defined]
         except Exception:
             pass
-        await asyncio.sleep(1)
-        b.close()
 
 
 async def _agent_loop(

@@ -14,9 +14,29 @@ import os
 import shlex
 import shutil
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
+
+
+async def _heartbeat(bus_: Any, label: str, interval_s: float = 5.0) -> None:
+    """Publish a `think` event every `interval_s` until cancelled. Lets the
+    UI show something while a long-running step (git clone) is happening."""
+    if bus_ is None:
+        # No bus — sleep forever; the caller will cancel us.
+        while True:
+            await asyncio.sleep(interval_s)
+    t0 = time.monotonic()
+    while True:
+        await asyncio.sleep(interval_s)
+        try:
+            bus_.publish({
+                "type": "think",
+                "text": f"{label}… {int(time.monotonic() - t0)}s elapsed",
+            })
+        except Exception:
+            return
 
 
 def _log(msg: str) -> None:
@@ -59,7 +79,13 @@ class LocalWorkspace:
     def edit_dir(self) -> str:
         return str(self.edit_dir_path)
 
-    async def prepare(self, github_token: str, repo_full_name: str, branch: str) -> None:
+    async def prepare(
+        self,
+        github_token: str,
+        repo_full_name: str,
+        branch: str,
+        bus_: Any = None,
+    ) -> None:
         """Clone the repo and add a worktree on `branch`."""
         # Nuke any prior run for this paper
         if self.root.exists():
@@ -68,12 +94,30 @@ class LocalWorkspace:
         _log(f"prepare: workspace at {self.root}")
 
         clone_url = f"https://x-access-token:{github_token}@github.com/{repo_full_name}.git"
-        await self._run(
-            f"git clone {shlex.quote(clone_url)} {shlex.quote(str(self.source_dir))}",
-            cwd=str(self.root),
-            timeout_s=180,
-            check=True,
-        )
+        if bus_ is not None:
+            bus_.publish({"type": "think", "text": f"cloning {repo_full_name}…"})
+        hb = asyncio.create_task(_heartbeat(bus_, "still cloning"))
+        try:
+            await self._run(
+                f"git clone {shlex.quote(clone_url)} {shlex.quote(str(self.source_dir))}",
+                cwd=str(self.root),
+                timeout_s=300,
+                check=True,
+            )
+        finally:
+            hb.cancel()
+        if bus_ is not None:
+            # Quick size report so the user sees what they downloaded.
+            size_res = await self._run(
+                f"du -sh {shlex.quote(str(self.source_dir))} | cut -f1",
+                cwd=str(self.root),
+                check=False,
+            )
+            bus_.publish({
+                "type": "think",
+                "text": f"clone complete ({size_res.stdout.strip() or '?'})",
+            })
+
         await self._run(
             "git config user.email 'agent@master-annotator' && "
             "git config user.name 'annotation-agent'",
@@ -81,6 +125,8 @@ class LocalWorkspace:
             check=True,
         )
         # Worktree on the agent's branch. Refuses if branch exists; use -B to overwrite.
+        if bus_ is not None:
+            bus_.publish({"type": "think", "text": f"creating worktree on {branch}…"})
         await self._run(
             f"git worktree add -B {shlex.quote(branch)} "
             f"{shlex.quote(str(self.edit_dir_path))}",

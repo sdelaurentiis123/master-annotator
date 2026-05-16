@@ -9,10 +9,12 @@ import shlex
 import sys
 from dataclasses import dataclass
 
+from typing import Any
+
 from e2b_code_interpreter import AsyncSandbox
 
 from app.config import settings
-from .agent_workspace import BashResult
+from .agent_workspace import BashResult, _heartbeat
 
 
 def _log(msg: str) -> None:
@@ -40,42 +42,69 @@ class SandboxWorkspace:
             raise RuntimeError("sandbox not prepared; call prepare() first")
         return self._sb
 
-    async def prepare(self, github_token: str, repo_full_name: str, branch: str) -> None:
+    async def prepare(
+        self,
+        github_token: str,
+        repo_full_name: str,
+        branch: str,
+        bus_: Any = None,
+    ) -> None:
         api_key = settings.e2b_api_key
         if not api_key:
             raise RuntimeError("E2B_API_KEY missing on the backend")
         _log(f"creating sandbox for paper {self.paper_id}…")
-        # 15-minute hard timeout; the orchestrator should finish in 5-10.
+        if bus_ is not None:
+            bus_.publish({"type": "think", "text": "spinning up sandbox…"})
         self._sb = await AsyncSandbox.create(api_key=api_key, timeout=900)
 
         # 1) Install tectonic. Stock python template doesn't have it.
         _log("installing tectonic…")
-        await self._run(
-            "curl --proto '=https' --tlsv1.2 -fsSL "
-            "https://drop-sh.fullyjustified.net | sh -s -- -y "
-            "&& mv tectonic /usr/local/bin/tectonic && tectonic --version",
-            cwd="/tmp",
-            timeout_s=180,
-            check=True,
-        )
+        if bus_ is not None:
+            bus_.publish({"type": "think", "text": "installing tectonic (LaTeX compiler)…"})
+        tec_hb = asyncio.create_task(_heartbeat(bus_, "still installing tectonic"))
+        try:
+            await self._run(
+                "curl --proto '=https' --tlsv1.2 -fsSL "
+                "https://drop-sh.fullyjustified.net | sh -s -- -y "
+                "&& mv tectonic /usr/local/bin/tectonic && tectonic --version",
+                cwd="/tmp",
+                timeout_s=180,
+                check=True,
+            )
+        finally:
+            tec_hb.cancel()
 
         # 2) Clone + worktree
         clone_url = (
             f"https://x-access-token:{github_token}@github.com/{repo_full_name}.git"
         )
         await self._run(f"mkdir -p {self.root}", cwd="/", check=True)
-        await self._run(
-            f"git clone {shlex.quote(clone_url)} {shlex.quote(self.source)}",
-            cwd=self.root,
-            timeout_s=180,
-            check=True,
-        )
+        if bus_ is not None:
+            bus_.publish({"type": "think", "text": f"cloning {repo_full_name}…"})
+        clone_hb = asyncio.create_task(_heartbeat(bus_, "still cloning"))
+        try:
+            await self._run(
+                f"git clone {shlex.quote(clone_url)} {shlex.quote(self.source)}",
+                cwd=self.root,
+                timeout_s=300,
+                check=True,
+            )
+        finally:
+            clone_hb.cancel()
+        if bus_ is not None:
+            sz = await self._run(
+                f"du -sh {shlex.quote(self.source)} | cut -f1",
+                cwd=self.root, check=False,
+            )
+            bus_.publish({"type": "think", "text": f"clone complete ({sz.stdout.strip() or '?'})"})
         await self._run(
             "git config user.email 'agent@master-annotator' && "
             "git config user.name 'annotation-agent'",
             cwd=self.source,
             check=True,
         )
+        if bus_ is not None:
+            bus_.publish({"type": "think", "text": f"creating worktree on {branch}…"})
         await self._run(
             f"git worktree add -B {shlex.quote(branch)} {shlex.quote(self._edit_dir)}",
             cwd=self.source,

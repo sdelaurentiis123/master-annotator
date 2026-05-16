@@ -65,7 +65,7 @@ async def run(
         b.publish({"type": "think", "text": f"preparing workspace…"})
         base_branch = await github_client.detect_default_branch(github_token, repo_full_name)
         b.publish({"type": "think", "text": f"base branch: {base_branch}"})
-        await ws.prepare(github_token, repo_full_name, branch)  # type: ignore[attr-defined]
+        await ws.prepare(github_token, repo_full_name, branch, bus_=b)  # type: ignore[attr-defined]
         b.publish({"type": "think", "text": f"clone + worktree ready on {branch}"})
 
         await _agent_loop(

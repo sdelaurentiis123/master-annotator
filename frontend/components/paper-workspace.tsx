@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PdfViewer } from "@/components/pdf-viewer";
 import { CommentSidebar } from "@/components/comment-sidebar";
 import { ExtractButton } from "@/components/extract-button";
+import { ExtractProgress } from "@/components/extract-progress";
 import { PlanButton } from "@/components/plan-button";
 import { PlanReview } from "@/components/plan-review";
 import { PathChooser } from "@/components/path-chooser";
@@ -144,11 +145,15 @@ function ExtractPhase({
         )}
       </div>
 
+      <ExtractProgress paperId={paper.id} active={paper.status === "extracting"} />
+
       {!annotations ? (
-        <div className="rounded-lg border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
-          Click <strong>Extract annotations</strong> to run Gemini over every page.
-          Takes roughly 60--180s for a 12-page paper.
-        </div>
+        paper.status !== "extracting" && (
+          <div className="rounded-lg border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
+            Click <strong>Extract annotations</strong> to run Gemini over every page.
+            Takes roughly 60--180s for a 12-page paper.
+          </div>
+        )
       ) : (
         <CommentSidebar
           doc={annotations}

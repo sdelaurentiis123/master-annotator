@@ -1,10 +1,22 @@
-"""Batched, rate-limited multi-page extraction with per-page progress logs."""
+"""Batched, rate-limited multi-page extraction with per-page progress logs.
+
+When a SessionBus is supplied (via `bus_` arg), every page lifecycle event also
+gets published as a progress event so the frontend can render a real-time bar:
+
+  {"type":"extract_start",     "total_pages": 12}
+  {"type":"extract_page_start", "page": 4}
+  {"type":"extract_page_done",  "page": 4, "annotations": 14, "elapsed": 27.0}
+  {"type":"extract_page_failed","page": 6, "error": "..."}
+  {"type":"extract_done",       "total_pages": 12, "total_annotations": 386,
+                                 "failed_pages": 1, "elapsed": 853.9}
+"""
 from __future__ import annotations
 
 import asyncio
 import os
 import sys
 import time
+from typing import Any
 
 from google import genai
 
@@ -22,6 +34,15 @@ def _log(msg: str) -> None:
     print(f"[extract] {msg}", flush=True, file=sys.stderr)
 
 
+def _publish(bus_: Any, event: dict) -> None:
+    """Safe publish — no-ops if bus_ is None."""
+    if bus_ is not None:
+        try:
+            bus_.publish(event)
+        except Exception:
+            pass
+
+
 async def extract_with_batching(
     pdf_bytes: bytes,
     *,
@@ -30,6 +51,7 @@ async def extract_with_batching(
     dpi: int = 300,
     concurrency: int = 6,
     api_key: str | None = None,
+    bus_: Any = None,
 ) -> DocumentAnnotations:
     """Concurrent multi-page extraction. Sequential rasterize, parallel Gemini calls."""
     if not pdf_bytes:
@@ -84,8 +106,20 @@ async def extract_with_batching(
             done.add(page_num)
             if error:
                 _log(f"p{page_num:>2} FAILED after {elapsed:.1f}s — keeping run alive: {error}")
+                _publish(bus_, {
+                    "type": "extract_page_failed",
+                    "page": page_num,
+                    "elapsed": elapsed,
+                    "error": error,
+                })
             else:
                 _log(f"p{page_num:>2} done in {elapsed:.1f}s ({len(anns)} annotations)")
+                _publish(bus_, {
+                    "type": "extract_page_done",
+                    "page": page_num,
+                    "annotations": len(anns),
+                    "elapsed": elapsed,
+                })
             return PageAnnotations(
                 page_number=page_num,
                 width_px=w,
@@ -97,8 +131,16 @@ async def extract_with_batching(
     pages.sort(key=lambda p: p.page_number)
     total = sum(len(p.annotations) for p in pages)
     failed = sum(1 for p in pages if len(p.annotations) == 0)
+    elapsed_total = time.monotonic() - t0
     _log(f"DONE {source_filename} — {len(pages)} pages, {total} annotations, "
-         f"{failed} empty/failed, {time.monotonic() - t0:.1f}s total")
+         f"{failed} empty/failed, {elapsed_total:.1f}s total")
+    _publish(bus_, {
+        "type": "extract_done",
+        "total_pages": len(pages),
+        "total_annotations": total,
+        "failed_pages": failed,
+        "elapsed": elapsed_total,
+    })
     return DocumentAnnotations(
         source_filename=source_filename,
         total_pages=len(rasterized),

@@ -5,9 +5,27 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { extractAnnotations } from "@/lib/api";
+import { BackendError } from "@/lib/api";
 import { createClient } from "@/utils/supabase/client";
 import type { Annotation, DocumentAnnotations } from "@/lib/types";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8001";
+
+async function extractAnnotationsWithProgress(
+  pdfBlob: Blob,
+  filename: string,
+  paperId: string,
+): Promise<DocumentAnnotations> {
+  const fd = new FormData();
+  fd.append("file", pdfBlob, filename);
+  fd.append("paper_id", paperId); // backend will publish per-page progress to this paper's bus
+  const resp = await fetch(`${BACKEND_URL}/api/extract`, { method: "POST", body: fd });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new BackendError(resp.status, text);
+  }
+  return (await resp.json()) as DocumentAnnotations;
+}
 
 type Props = {
   paperId: string;
@@ -34,7 +52,11 @@ export function ExtractButton({ paperId, pdfUrl, pdfFilename, alreadyExtracted }
       if (!pdfResp.ok) throw new Error(`fetch pdf: ${pdfResp.status}`);
       const blob = await pdfResp.blob();
 
-      const doc: DocumentAnnotations = await extractAnnotations(blob, pdfFilename);
+      const doc: DocumentAnnotations = await extractAnnotationsWithProgress(
+        blob,
+        pdfFilename,
+        paperId,
+      );
 
       const totalAnnotations = doc.pages.reduce(
         (acc: number, p) => acc + p.annotations.length,

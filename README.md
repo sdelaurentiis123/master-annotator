@@ -50,14 +50,23 @@ Then open <http://localhost:3000>.
 ### Supabase schema
 
 Open your Supabase project's SQL editor and paste the contents of
-[`supabase/schema.sql`](supabase/schema.sql). It creates the `papers` table + the
-Phase-1 RLS policy.
+[`supabase/schema.sql`](supabase/schema.sql). It creates/updates the `papers` table,
+the `papers` storage bucket, and the per-user RLS policies.
 
-Then in Supabase → Storage, create a bucket named **`papers`** (public). The schema
-file includes a SQL alternative for creating the bucket via the storage table.
+### Supabase GitHub OAuth provider (one-time)
 
-If you haven't run the SQL yet, the home page will show a clear "Supabase: Could not
-find the table 'public.papers'..." error on the recent-papers list.
+1. Create a new **GitHub OAuth App** at <https://github.com/settings/applications/new>
+   - Application name: master-annotator (or anything)
+   - Homepage URL: your Vercel domain (e.g. `https://master-annotator-stan-ds-projects.vercel.app`)
+   - Authorization callback URL: `https://nhuqwskvumbznrukhtcg.supabase.co/auth/v1/callback`
+   - Note the Client ID + generate a Client Secret.
+2. In Supabase → **Authentication → Providers → GitHub** → enable.
+   - Paste Client ID + Client Secret.
+   - Scopes: `repo read:user`
+   - Save.
+3. In Supabase → **Authentication → URL Configuration** → add your Vercel domain to
+   the **Redirect URLs** allowlist (both `https://<vercel-url>/auth/callback` and
+   `http://localhost:3000/auth/callback` for local dev).
 
 ## Deploy
 

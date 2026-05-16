@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const ACCEPT = "application/pdf";
 const MAX_BYTES = 50 * 1024 * 1024;
 
-export function UploadDropzone() {
+export function UploadDropzone({ userId }: { userId: string }) {
   const router = useRouter();
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -31,7 +31,8 @@ export function UploadDropzone() {
       try {
         const supabase = createClient();
         const paperId = crypto.randomUUID();
-        const pdfPath = `${paperId}.pdf`;
+        // Scope storage path under the user's uid so RLS can enforce ownership.
+        const pdfPath = `${userId}/${paperId}.pdf`;
 
         const { error: upErr } = await supabase.storage
           .from("papers")
@@ -40,6 +41,7 @@ export function UploadDropzone() {
 
         const { error: insErr } = await supabase.from("papers").insert({
           id: paperId,
+          user_id: userId,
           pdf_filename: file.name,
           total_pages: 0,
           pdf_path: pdfPath,

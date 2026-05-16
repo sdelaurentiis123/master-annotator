@@ -1,6 +1,5 @@
--- Run this once in your Supabase project's SQL editor.
--- Phase-1 policies: permissive anon access (no auth yet).
--- Phase 2 will tighten with `auth.uid() = user_id`.
+-- Run this in your Supabase project's SQL editor.
+-- Phase-2: per-user ownership via auth.uid().
 
 -- ---- papers table -------------------------------------------------------
 
@@ -16,39 +15,54 @@ create table if not exists public.papers (
   error_message text
 );
 
+-- Phase-2 additions
+alter table public.papers
+  add column if not exists user_id uuid references auth.users(id) on delete cascade;
+alter table public.papers
+  add column if not exists connected_repo_full_name text;
+alter table public.papers
+  add column if not exists pr_url text;
+alter table public.papers
+  add column if not exists pr_number int;
+
 alter table public.papers enable row level security;
 
+-- Replace any prior permissive policies with per-user ownership
 drop policy if exists "anon all (phase 1)" on public.papers;
-create policy "anon all (phase 1)" on public.papers
-  for all to anon using (true) with check (true);
-
--- The publishable client also identifies as authenticated for some Supabase
--- routes — keep the policy permissive for both roles in Phase 1.
 drop policy if exists "authenticated all (phase 1)" on public.papers;
-create policy "authenticated all (phase 1)" on public.papers
-  for all to authenticated using (true) with check (true);
+drop policy if exists "owner select" on public.papers;
+drop policy if exists "owner insert" on public.papers;
+drop policy if exists "owner update" on public.papers;
+drop policy if exists "owner delete" on public.papers;
+
+create policy "owner select" on public.papers
+  for select to authenticated using (auth.uid() = user_id);
+create policy "owner insert" on public.papers
+  for insert to authenticated with check (auth.uid() = user_id);
+create policy "owner update" on public.papers
+  for update to authenticated using (auth.uid() = user_id);
+create policy "owner delete" on public.papers
+  for delete to authenticated using (auth.uid() = user_id);
 
 
 -- ---- Storage bucket -----------------------------------------------------
--- Create the bucket if it doesn't exist. Public read so we can use plain
--- signed URLs without auth complexity in Phase 1.
+-- Storage path convention: papers/<user_id>/<paper_id>.pdf
 
 insert into storage.buckets (id, name, public)
 values ('papers', 'papers', true)
 on conflict (id) do update set public = excluded.public;
 
--- RLS on storage.objects: allow anon + authenticated full access to the
--- papers bucket ONLY. This is the policy that fixes
--- "new row violates row-level security policy" on upload.
-
 drop policy if exists "anon papers bucket (phase 1)" on storage.objects;
-create policy "anon papers bucket (phase 1)" on storage.objects
-  for all to anon
-  using (bucket_id = 'papers')
-  with check (bucket_id = 'papers');
-
 drop policy if exists "authenticated papers bucket (phase 1)" on storage.objects;
-create policy "authenticated papers bucket (phase 1)" on storage.objects
+drop policy if exists "owner papers bucket" on storage.objects;
+
+create policy "owner papers bucket" on storage.objects
   for all to authenticated
-  using (bucket_id = 'papers')
-  with check (bucket_id = 'papers');
+  using (
+    bucket_id = 'papers'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'papers'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );

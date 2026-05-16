@@ -1,29 +1,57 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { UploadDropzone } from "@/components/upload-dropzone";
 import { PapersList } from "@/components/papers-list";
 import { SiteHeader } from "@/components/site-header";
+import { SignInButton } from "@/components/sign-in-button";
+import { createClient } from "@/utils/supabase/server";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return (
+      <>
+        <SiteHeader />
+        <main className="mx-auto w-full max-w-3xl px-6 py-24 space-y-10 text-center">
+          <div className="space-y-3">
+            <p className="kicker">reviewer marginalia, applied</p>
+            <h1 className="font-serif text-5xl font-medium tracking-tight">
+              Drop an annotated paper.
+              <br />
+              Ship the edits.
+            </h1>
+            <p className="mx-auto max-w-prose text-[var(--ink-2)] leading-relaxed">
+              Gemini reads every reviewer mark on every page. Claude organizes them into
+              an ordered plan. Sign in with GitHub and our agent opens a pull request on
+              your paper&rsquo;s repo with the fixes applied.
+            </p>
+          </div>
+          <SignInButton className="px-6 py-3 text-base" />
+          <p className="kicker">
+            github oauth -- repo scope -- supabase auth
+          </p>
+        </main>
+      </>
+    );
+  }
+
   return (
     <>
-      <SiteHeader subtitle="reviewer marginalia → LaTeX PR" />
+      <SiteHeader subtitle="reviewer marginalia -> LaTeX PR" />
 
-      <main className="mx-auto w-full max-w-3xl px-6 py-16 space-y-14">
-        <section className="space-y-3 text-center">
-          <p className="kicker">phase 1 · upload + plan + copy prompt</p>
-          <h1 className="font-serif text-4xl font-medium tracking-tight">
+      <main className="mx-auto w-full max-w-3xl px-6 py-12 space-y-10">
+        <section className="space-y-3">
+          <p className="kicker">upload</p>
+          <h1 className="font-serif text-3xl font-medium tracking-tight">
             Drop a marked-up PDF.
           </h1>
-          <p className="text-[var(--ink-2)] max-w-prose mx-auto leading-relaxed">
-            Gemini reads every mark on every page. Claude organizes them into an ordered
-            plan, classifies each by reviewer intent, and renders a Claude Code prompt you
-            can paste into your paper&rsquo;s repo. PR opening lands in Phase&nbsp;2.
-          </p>
-        </section>
-
-        <section>
-          <UploadDropzone />
+          <UploadDropzone userId={user.id} />
         </section>
 
         <section className="space-y-3">
@@ -43,7 +71,7 @@ export default function HomePage() {
 
       <footer className="mt-auto border-t border-[var(--rule)] py-4">
         <p className="mx-auto max-w-6xl px-6 kicker">
-          gemini 3.1 pro preview · claude opus 4.7 · supabase
+          gemini 3.1 pro preview -- claude opus 4.7 -- supabase
         </p>
       </footer>
     </>

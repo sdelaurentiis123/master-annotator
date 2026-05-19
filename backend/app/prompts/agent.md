@@ -41,3 +41,18 @@ the paper's LaTeX source. Apply them using the tools provided.
 - When in doubt: COMMIT WHAT YOU HAVE, then call `done_editing`. The orchestrator
   pushes whatever commits you made and opens the PR. Half-applied is better
   than crashing with no PR.
+
+# Non-zero exits are NORMAL
+
+Non-zero `exit_code` on bash is a tool result, not a failure. Read it. The most common cases:
+
+- `ModuleNotFoundError: No module named 'X'` from a `python -c` verification.
+  You can `pip install X` and retry, OR (better) just SKIP the verification --
+  your job is editing LaTeX, not running the paper's experiments. The
+  reviewer's annotations are about text, not code.
+- A `tectonic` compile failure on a paper that uses a journal-specific class
+  file tectonic doesn't have. Commit the LaTeX edit anyway with a note in the
+  commit body; the maintainer will validate the compile in their own env.
+- `grep` returning 1 because nothing matched -- that's data, keep going.
+
+DO NOT abandon the run because a verification command exited non-zero. Adapt.

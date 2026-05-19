@@ -170,12 +170,27 @@ class SandboxWorkspace:
         # API, and prepend ~/.local/bin to PATH so the agent's `tectonic` and
         # anything else we installed there is reachable from inside bash too.
         full = f"export PATH=$HOME/.local/bin:$PATH && cd {shlex.quote(cwd)} && {cmd}"
-        exec_ = await self.sb.commands.run(full, timeout=timeout_s)
-        result = BashResult(
-            stdout=getattr(exec_, "stdout", "") or "",
-            stderr=getattr(exec_, "stderr", "") or "",
-            exit_code=getattr(exec_, "exit_code", -1),
-        )
+
+        # E2B's SDK raises CommandExitException on any non-zero exit. For the
+        # agent's bash tool we want non-zero exits to come back as normal
+        # tool results (the agent decides what to do with them), so we catch
+        # broadly and extract whatever exit info is on the exception.
+        try:
+            exec_ = await self.sb.commands.run(full, timeout=timeout_s)
+            result = BashResult(
+                stdout=getattr(exec_, "stdout", "") or "",
+                stderr=getattr(exec_, "stderr", "") or "",
+                exit_code=getattr(exec_, "exit_code", -1),
+            )
+        except Exception as e:
+            cls = type(e).__name__
+            # CommandExitException carries stdout/stderr/exit_code; defaults
+            # cover anything else (timeout, network, etc.).
+            result = BashResult(
+                stdout=getattr(e, "stdout", "") or "",
+                stderr=(getattr(e, "stderr", "") or f"{cls}: {e}"),
+                exit_code=getattr(e, "exit_code", 1),
+            )
         if check and result.exit_code != 0:
             raise RuntimeError(
                 f"sandbox bash failed [{result.exit_code}]: {cmd[:120]}\n"
